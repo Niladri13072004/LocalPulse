@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "LocalPulse",
+    "slug": "localpulse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.localpulse.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      },
+      "package": "com.localpulse.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow LocalPulse to access your location to detect your ward and find local issues."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow LocalPulse to access your camera to take photos of civic issues."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow LocalPulse to access your photo library to upload images of civic issues."
+        }
+      ]
+    ],
+    "scheme": "localpulse"
+  }
+}

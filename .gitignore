@@ -1,0 +1,27 @@
+# Expo
+.expo/
+dist/
+web-build/
+
+# Dependencies
+node_modules/
+
+# Native builds
+ios/
+android/
+
+# Local env files
+.env*.local
+
+# Agents
+.agents/
+
+# Editor directories and files
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
