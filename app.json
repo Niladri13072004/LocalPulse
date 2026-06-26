@@ -20,7 +20,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F172A"
       },
-      "package": "com.localpulse.app"
+      "package": "com.localpulse.app",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,6 +52,15 @@
         }
       ]
     ],
-    "scheme": "localpulse"
+    "scheme": "localpulse",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "ac65f0b5-3331-4dd7-8e25-9aa49953d1f9"
+      }
+    },
+    "owner": "niladri_singha_2004"
   }
 }
