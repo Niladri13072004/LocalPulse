@@ -25,3 +25,16 @@ android/
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Databases
+db/*.db
+
+# Screenshots
+screenshots/
