@@ -34,6 +34,6 @@
 - [x] Built `store/useQuizStore.ts` managing lessons, quizzes, and streaks
 - [x] Citizen Academy Feed: Added lesson sheets, bookmark filters, and fire indicators
 - [x] Interactive Quiz Modal: Configured question flows, highlight feedback options, and reward trackers
-- [/] Verification and Walkthrough
-  - [ ] Verify AI classification autofills and duplicate detections
-  - [ ] Write walkthrough summary in `walkthrough.md`
+- [x] Verification and Walkthrough
+  - [x] Verify AI classification autofills and duplicate detections
+  - [x] Write walkthrough summary in walkthrough.md
