@@ -18,7 +18,7 @@ export default function AdminLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>📊</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>📊</Text>
           ),
         }}
       />
@@ -27,7 +27,7 @@ export default function AdminLayout() {
         options={{
           title: 'Issue Queue',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>📥</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>📥</Text>
           ),
         }}
       />
@@ -36,7 +36,7 @@ export default function AdminLayout() {
         options={{
           title: 'Heatmap',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>🔥</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>🔥</Text>
           ),
         }}
       />
@@ -45,7 +45,7 @@ export default function AdminLayout() {
         options={{
           title: 'Verify Services',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>🛠️</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>🛠️</Text>
           ),
         }}
       />

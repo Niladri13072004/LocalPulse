@@ -87,6 +87,18 @@ export function useLocation() {
     } catch (err) {
       setErrorMsg('Could not fetch location. Using mock Indore location.');
       const mockCoords = { latitude: 22.7196, longitude: 75.8577 };
+      setLocation({
+        coords: {
+          latitude: mockCoords.latitude,
+          longitude: mockCoords.longitude,
+          altitude: null,
+          accuracy: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.now(),
+      } as any);
       setWardInfo(resolveWardAndCity(mockCoords.latitude, mockCoords.longitude));
     } finally {
       setLoading(false);

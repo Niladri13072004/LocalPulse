@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useQuizStore } from '../../store/useQuizStore';
@@ -77,8 +77,8 @@ export default function QuizScreen() {
               const isCorrect = idx === currentQuestion.correctIndex;
               const isWrong = isSelected && !isCorrect;
 
-              let btnStyle = styles.optBtn;
-              let txtStyle = styles.optBtnText;
+              let btnStyle: StyleProp<ViewStyle> = styles.optBtn;
+              let txtStyle: StyleProp<TextStyle> = styles.optBtnText;
 
               if (selectedOpt !== null) {
                 if (isCorrect) {
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   correctBtnText: {
     color: '#10B981',
-    fontWeight: '750',
+    fontWeight: '700',
   },
   wrongBtn: {
     backgroundColor: '#EF444420',
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   wrongBtnText: {
     color: '#EF4444',
-    fontWeight: '750',
+    fontWeight: '700',
   },
   feedbackContainer: {
     marginTop: 24,

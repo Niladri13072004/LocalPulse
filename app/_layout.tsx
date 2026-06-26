@@ -7,12 +7,18 @@ import '../global.css';
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
-  const { user, isLoading } = useAuthStore();
+  const { user, isLoading, isHydrated, hydrate } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
+  // Restore persisted session on app launch
   useEffect(() => {
-    if (isLoading) return;
+    hydrate();
+  }, []);
+
+  useEffect(() => {
+    // Wait until storage is hydrated before making routing decisions
+    if (!isHydrated || isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -33,7 +39,7 @@ export default function RootLayout() {
         }
       }
     }
-  }, [user, segments, isLoading]);
+  }, [user, segments, isLoading, isHydrated]);
 
   return (
     <QueryClientProvider client={queryClient}>

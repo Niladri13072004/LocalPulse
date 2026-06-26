@@ -1,42 +1,30 @@
-# Project: LocalPulse Feed Filtering and Backend Migration
+# Project: LocalPulse Mobile Map and Photo Upload Fixes
 
 ## Architecture
-- React Native Expo frontend running on Web (http://localhost:8085).
-- A backend service exposing REST API endpoints:
-  - `GET /api/issues`: fetches issues based on status, category, radius, userLocation.
-  - `GET /api/events`: fetches community events.
-- A database seeded with issues (categories: Pothole, Water logging, Garbage, Electricity, Safety, Others; statuses: Open, In Progress, Resolved) and community events.
-- Distance calculation on the backend to filter issues by selected radius.
-- Frontend updated to query the backend endpoints.
+- React Native Expo application.
+- **Mobile Map Component (`app/(citizen)/map.tsx`)**: Renders SVG interactive map. Needs `react-native-webview` on Android/iOS platforms, and standard rendering on Web.
+- **Photo Selection Component (`app/(citizen)/create.tsx`)**: Native Camera (using `expo-camera`) and native gallery picker (using `expo-image-picker`) with dynamic RN permission handling.
+- **App Bundler**: Bundled using `npx expo export --platform android`.
 
 ## Code Layout
 - Frontend screens:
-  - `app/(citizen)/home.tsx` - home feed and filtering UI.
-  - `app/(citizen)/events.tsx` - community events display.
-- Store & state management:
-  - `store/useIssueStore.ts` - zustand store for issues.
-- Backend code:
-  - `server/server.js` (or similar) - server entry point.
-- Database:
-  - `db/schema.sql`, `db/seed.sql`
+  - `app/(citizen)/map.tsx` - interactive map view.
+  - `app/(citizen)/create.tsx` - report issue form screen.
+- Config files:
+  - `package.json` - dependencies and devDependencies.
+  - `app.json` - expo config.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Exploration | Explore system environment (PostgreSQL / SQLite support, Node / Python) and determine backend framework. | None | DONE |
-| 2 | Backend Setup | Implement server, routing, distance filtering using Haversine formula, database schema, and seed data. | M1 | DONE |
-| 3 | Frontend Integration | Update home feed UI filters (Status, Radius) and modify stores to request from the real backend. | M2 | DONE |
-| 4 | Verification | Run browser automation script to capture screenshots and generate the verification report. | M3 | DONE |
+| 1 | Exploration & Env Prep | Inspect map.tsx, create.tsx, and package.json. Determine current state and install necessary dependencies. | None | DONE |
+| 2 | Mobile Map Implementation | Use `react-native-webview` to render the SVG interactive map on mobile. Implement bridge communication for marker clicks and radius update. | M1 | IN_PROGRESS |
+| 3 | Native Photo & Camera Picker | Integrate `expo-image-picker` and `expo-camera` into report creation screen. Request permissions dynamically. | M1 | PLANNED |
+| 4 | Bundler Integrity Check | Verify bundler compilation using `npx expo export --platform android` to ensure no dependency errors. | M2, M3 | PLANNED |
 
 ## Interface Contracts
-### Frontend ↔ Backend
-- `GET /api/issues`
-  - Request Query Parameters:
-    - `status`: 'all' | 'open' | 'in_progress' | 'resolved'
-    - `category`: string (e.g., 'All', 'Pothole', 'Water logging', etc.)
-    - `radius`: number (1, 3, 5, 10)
-    - `latitude`: number (optional/user location)
-    - `longitude`: number (optional/user location)
-  - Response: JSON array of Issue objects.
-- `GET /api/events`
-  - Response: JSON array of Event objects.
+### WebView ↔ React Native (Mobile Map)
+- On marker click inside SVG Map WebView:
+  - `window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MARKER_CLICK', issueId: id }))`
+- On WebView load/update:
+  - Coordinate radius proximity display updates based on radius props.

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import AppHeader from '../../components/AppHeader';
 import OfflineBanner from '../../components/OfflineBanner';
 import { useIssueStore, Issue } from '../../store/useIssueStore';
 import { useRouter } from 'expo-router';
+import { WebView } from 'react-native-webview';
 
 const INDORE_CENTER = { lat: 22.7196, lng: 75.8577 };
 
@@ -33,6 +34,8 @@ export default function CitizenMapScreen() {
   const { issues } = useIssueStore();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedRadius, setSelectedRadius] = useState<number>(3);
+  const webViewRef = useRef<WebView>(null);
+  const iframeRef = useRef<any>(null);
 
   // Generate a beautiful, local, high-fidelity dark SVG vector map of Indore
   const vectorMapHtml = useMemo(() => {
@@ -57,11 +60,9 @@ export default function CitizenMapScreen() {
       const pos = project(issue.latitude, issue.longitude);
       const color = getStatusColor(issue.status);
       const emoji = getCategoryEmoji(issue.category);
-      const escapedTitle = issue.title.replace(/'/g, "\\'").replace(/"/g, '\\"');
-      const escapedDesc = issue.description.replace(/'/g, "\\'").replace(/"/g, '\\"').substring(0, 100);
 
       return `
-        <g class="marker" onclick="selectIssue('${issue.id}', '${escapedTitle}', '${issue.category}', '${issue.status}', '${escapedDesc}', '${issue.wardName}', '${issue.city}')" style="cursor: pointer;">
+        <g class="marker" data-issue-id="${issue.id}" style="cursor: pointer;">
           <!-- Pulse aura -->
           <circle cx="${pos.x}" cy="${pos.y}" r="22" fill="${color}" opacity="0.1" class="pulse-aura" />
           <!-- Border/background bubble -->
@@ -176,42 +177,78 @@ export default function CitizenMapScreen() {
   </div>
 
   <script>
-    function selectIssue(id, title, category, status, desc, ward, city) {
+    const issuesData = ${JSON.stringify(issues).replace(/</g, '\\u003c')};
+
+    function selectIssue(issue) {
+      // Mobile bridge integration
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'MARKER_CLICK',
+          issueId: issue.id
+        }));
+      }
+
+      // Web iframe parent postMessage
       window.parent.postMessage({
         type: 'issueSelect',
-        id: id,
-        title: title,
-        category: category,
-        status: status,
-        description: desc,
-        wardName: ward,
-        city: city
+        id: issue.id,
+        title: issue.title,
+        category: issue.category,
+        status: issue.status,
+        description: issue.description,
+        wardName: issue.wardName,
+        city: issue.city
       }, '*');
     }
 
-    // Listen to radius change
-    window.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'updateRadius') {
-        document.getElementById('radius-circle').setAttribute('r', e.data.radius * 65);
+    // Attach click listener with event delegation
+    document.getElementById('map-container').addEventListener('click', function(e) {
+      const marker = e.target.closest && e.target.closest('.marker');
+      if (marker) {
+        const issueId = marker.getAttribute('data-issue-id');
+        const issue = issuesData.find(function(i) { return i.id === issueId; });
+        if (issue) {
+          selectIssue(issue);
+        }
       }
     });
+
+    // Listen to radius change (supports object payloads from Web, and string payloads from Mobile WebView)
+    function handleMessage(e) {
+      let data = e.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (err) {
+          return;
+        }
+      }
+      if (data && data.type === 'updateRadius') {
+        const radiusCircle = document.getElementById('radius-circle');
+        if (radiusCircle) {
+          radiusCircle.setAttribute('r', data.radius * 65);
+        }
+      }
+    }
+    
+    window.addEventListener('message', handleMessage);
+    document.addEventListener('message', handleMessage);
   </script>
 </body>
 </html>`;
-  }, [issues, selectedRadius]);
+  }, [issues]);
 
   const handleRadiusChange = (r: number) => {
     setSelectedRadius(r);
-    // Send postMessage to the iframe
+    // Send postMessage to the iframe or WebView
     if (Platform.OS === 'web') {
-      const iframe = document.querySelector('iframe');
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({ type: 'updateRadius', radius: r }, '*');
-      }
+      iframeRef.current?.contentWindow?.postMessage({ type: 'updateRadius', radius: r }, '*');
+    } else {
+      webViewRef.current?.postMessage(JSON.stringify({ type: 'updateRadius', radius: r }));
     }
   };
 
-  // Listen for messages from the iframe
+  // Listen for messages from the iframe (Web platform)
   React.useEffect(() => {
     if (Platform.OS !== 'web') return;
     
@@ -225,6 +262,19 @@ export default function CitizenMapScreen() {
     return () => window.removeEventListener('message', handler);
   }, [issues]);
 
+  // Handle messages from the WebView (Mobile platforms)
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data && data.type === 'MARKER_CLICK') {
+        const issue = issues.find(i => i.id === data.issueId);
+        if (issue) setSelectedIssue(issue);
+      }
+    } catch (e) {
+      console.warn('Failed to parse WebView message:', e);
+    }
+  };
+
   return (
     <ScreenWrapper>
       <AppHeader />
@@ -235,6 +285,7 @@ export default function CitizenMapScreen() {
         {Platform.OS === 'web' ? (
           <View style={{ flex: 1, width: '100%', height: '100%', minHeight: 500, position: 'relative' }}>
             <iframe
+              ref={iframeRef}
               srcDoc={vectorMapHtml}
               style={{
                 position: 'absolute',
@@ -248,9 +299,15 @@ export default function CitizenMapScreen() {
             />
           </View>
         ) : (
-          <View style={styles.fallbackMap}>
-            <Text style={styles.fallbackText}>Map is available on web only</Text>
-          </View>
+          <WebView
+            ref={webViewRef}
+            originWhitelist={['*']}
+            source={{ html: vectorMapHtml }}
+            onMessage={handleWebViewMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            style={styles.webView}
+          />
         )}
 
         {/* Floating Radius Controls */}
@@ -335,6 +392,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     position: 'relative',
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   fallbackMap: {
     flex: 1,

@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   label: {
     color: '#E2E8F0',
     fontSize: 13,
-    fontWeight: '750',
+    fontWeight: '700',
   },
   typeRow: {
     flexDirection: 'row',

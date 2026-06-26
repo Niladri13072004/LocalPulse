@@ -10,9 +10,9 @@ import OfflineBanner from '../../components/OfflineBanner';
 import { useLocation } from '../../hooks/useLocation';
 import { useSyncStore } from '../../store/useSyncStore';
 import { useDraftStore } from '../../store/useDraftStore';
-import { useIssueStore } from '../../store/useIssueStore';
-import { useOfflineSync } from '../../hooks/useOfflineSync';
+import { useIssueStore, Issue } from '../../store/useIssueStore';
 import { runAIClassification, runDuplicateDetection } from '../../services/gemini';
+import * as ImagePicker from 'expo-image-picker';
 
 const issueSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
@@ -38,7 +38,7 @@ export default function CreateIssueScreen() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [duplicateIssue, setDuplicateIssue] = useState<any | null>(null);
+  const [duplicateIssue, setDuplicateIssue] = useState<Issue | null>(null);
 
   const { control, handleSubmit, formState: { errors }, reset, setValue, getValues } = useForm<IssueSchemaType>({
     resolver: zodResolver(issueSchema),
@@ -77,10 +77,93 @@ export default function CreateIssueScreen() {
     setAiLoading(false);
   };
 
+  const requestCameraPermission = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Camera access is required to take photos.');
+      return false;
+    }
+    return true;
+  };
+
+  const requestLibraryPermission = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Gallery access is required to choose photos.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleTakePhoto = async () => {
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setImages(prevImages => [...prevImages, selectedUri]);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred while taking the photo.');
+    }
+  };
+
+  const handleChooseFromGallery = async () => {
+    const hasPermission = await requestLibraryPermission();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setImages(prevImages => [...prevImages, selectedUri]);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred while selecting the photo.');
+    }
+  };
+
   const handleCaptureImage = () => {
-    // Mock image acquisition
-    const randomImg = MOCK_IMAGES[Math.floor(Math.random() * MOCK_IMAGES.length)];
-    setImages([...images, randomImg]);
+    Alert.alert(
+      'Select Photo Source',
+      'Choose how you want to add photos to your report.',
+      [
+        { text: 'Take Photo', onPress: handleTakePhoto },
+        { text: 'Choose from Gallery', onPress: handleChooseFromGallery },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleDeleteImage = (indexToDelete: number) => {
+    Alert.alert(
+      'Delete Photo',
+      'Are you sure you want to remove this photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => {
+            setImages(prev => prev.filter((_, index) => index !== indexToDelete));
+          } 
+        }
+      ]
+    );
   };
 
   const handleClearImages = () => {
@@ -89,7 +172,7 @@ export default function CreateIssueScreen() {
 
   const onSubmit = async (data: IssueSchemaType) => {
     if (!location || !wardInfo) {
-      alert('We need your location coordinate to submit a report.');
+      Alert.alert('Location Required', 'We need your location coordinate to submit a report.');
       return;
     }
 
@@ -112,7 +195,7 @@ export default function CreateIssueScreen() {
       addIssue({
         title: payload.title,
         description: payload.description,
-        category: payload.category as any,
+        category: payload.category,
         imageUrls: payload.images.length > 0 ? payload.images : ['https://images.unsplash.com/photo-1599740831114-17186f567646?q=80&w=600'],
         latitude: payload.latitude,
         longitude: payload.longitude,
@@ -124,11 +207,11 @@ export default function CreateIssueScreen() {
         priority: 'medium',
         departmentName: 'Municipality',
       });
-      alert('Issue reported successfully!');
+      Alert.alert('Success', 'Issue reported successfully!');
     } else {
       // Add to offline sync queue
       addToQueue('create_issue', payload);
-      alert('Offline Mode: Your issue has been queued and will upload automatically when you reconnect.');
+      Alert.alert('Offline Mode', 'Offline Mode: Your issue has been queued and will upload automatically when you reconnect.');
     }
 
     setSubmitting(false);
@@ -140,7 +223,7 @@ export default function CreateIssueScreen() {
 
   const handleSaveDraft = handleSubmit((data) => {
     if (!location || !wardInfo) {
-      alert('Location required to save draft.');
+      Alert.alert('Location Required', 'Location required to save draft.');
       return;
     }
 
@@ -155,7 +238,7 @@ export default function CreateIssueScreen() {
       isAnonymous,
     });
 
-    alert('Draft saved successfully!');
+    Alert.alert('Success', 'Draft saved successfully!');
     reset();
     setImages([]);
     setIsAnonymous(false);
@@ -298,7 +381,17 @@ export default function CreateIssueScreen() {
             {images.length > 0 && (
               <ScrollView horizontal style={styles.imagePreviewScroll} contentContainerStyle={{ gap: 8 }}>
                 {images.map((img, index) => (
-                  <Image key={index} source={{ uri: img }} style={styles.previewImage} />
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.previewWrapper}
+                    onPress={() => handleDeleteImage(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Image source={{ uri: img }} style={styles.previewImage} />
+                    <View style={styles.deleteBadge}>
+                      <Text style={styles.deleteBadgeText}>✕</Text>
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
@@ -312,7 +405,7 @@ export default function CreateIssueScreen() {
             ) : wardInfo ? (
               <View style={styles.locationDetails}>
                 <Text style={styles.coordText}>
-                  Lat: {location?.coords.latitude.toFixed(4)}, Lng: {location?.coords.longitude.toFixed(4)}
+                  Lat: {location?.coords?.latitude != null ? location.coords.latitude.toFixed(4) : 'N/A'}, Lng: {location?.coords?.longitude != null ? location.coords.longitude.toFixed(4) : 'N/A'}
                 </Text>
                 <Text style={styles.wardTag}>Resolved Ward: {wardInfo.wardName}, {wardInfo.city}</Text>
               </View>
@@ -470,6 +563,32 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 8,
   },
+  previewWrapper: {
+    position: 'relative',
+    paddingTop: 4,
+    paddingRight: 4,
+  },
+  deleteBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    elevation: 2,
+  },
+  deleteBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 12,
+  },
   locationBox: {
     backgroundColor: '#1E293B',
     borderWidth: 1,
@@ -615,7 +734,7 @@ const styles = StyleSheet.create({
   },
   dismissBtnText: {
     color: '#94A3B8',
-    fontWeight: '750',
+    fontWeight: '700',
     fontSize: 11,
   },
 });

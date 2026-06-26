@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Platform, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +14,7 @@ const loginSchema = z.object({
 
 type LoginSchemaType = z.infer<typeof loginSchema>;
 
-const isWeb = typeof window !== 'undefined';
+const isWeb = Platform.OS === 'web';
 
 const CITY_ICONS: Record<CityOption, string> = {
   Indore: '🏛️',
@@ -27,10 +27,16 @@ const CITY_ICONS: Record<CityOption, string> = {
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading } = useAuthStore();
+  const { login, loginWithGoogle, completeGoogleSignup, isLoading } = useAuthStore();
   const [role, setRole] = useState<'citizen' | 'admin'>('citizen');
   const [selectedCity, setSelectedCity] = useState<CityOption>('Indore');
   const [cityError, setCityError] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  // For new Google users who need to pick role & city
+  const [googleProfile, setGoogleProfile] = useState<{ name: string; email: string } | null>(null);
+  const [showGoogleSetup, setShowGoogleSetup] = useState(false);
+  const [googleRole, setGoogleRole] = useState<'citizen' | 'admin'>('citizen');
+  const [googleCity, setGoogleCity] = useState<CityOption>('Indore');
 
   // Remember last selected city from localStorage
   useEffect(() => {
@@ -65,6 +71,42 @@ export default function LoginScreen() {
       } else {
         router.replace('/(admin)/issue-queue');
       }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      // Simulate Google OAuth token fetch (in production, use expo-auth-session)
+      // For demo: prompt user to enter their Google name/email
+      const mockProfile = { name: 'Google User', email: 'user@gmail.com' };
+      const result = await loginWithGoogle(mockProfile);
+      if (result.success && !result.needsRole) {
+        // Existing user — navigate directly
+        const { user } = useAuthStore.getState();
+        if (user?.role === 'citizen') {
+          router.replace('/(citizen)/home');
+        } else {
+          router.replace('/(admin)/issue-queue');
+        }
+      } else if (result.success && result.needsRole) {
+        // New user — show role/city picker
+        setGoogleProfile(mockProfile);
+        setShowGoogleSetup(true);
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Google Sign-In failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleSetupComplete = async () => {
+    if (!googleProfile) return;
+    const success = await completeGoogleSignup(googleProfile, googleRole, googleCity);
+    if (success) {
+      setShowGoogleSetup(false);
+      router.replace(googleRole === 'citizen' ? '/(citizen)/home' : '/(admin)/issue-queue');
     }
   };
 
@@ -184,6 +226,29 @@ export default function LoginScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Google Sign-In Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Button */}
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading || isLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Footer links */}
@@ -193,6 +258,51 @@ export default function LoginScreen() {
             <Text style={styles.signupText}>Sign Up</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Google Setup Modal — for first-time Google users */}
+        <Modal visible={showGoogleSetup} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Complete Your Profile</Text>
+              <Text style={styles.modalSubtitle}>Welcome, {googleProfile?.name}! Choose your role and city.</Text>
+
+              {/* Role selector */}
+              <Text style={styles.label}>Role</Text>
+              <View style={styles.roleContainer}>
+                <TouchableOpacity
+                  style={[styles.roleTab, googleRole === 'citizen' && styles.activeTab]}
+                  onPress={() => setGoogleRole('citizen')}
+                >
+                  <Text style={[styles.roleText, googleRole === 'citizen' && styles.activeRoleText]}>Citizen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roleTab, googleRole === 'admin' && styles.activeTab]}
+                  onPress={() => setGoogleRole('admin')}
+                >
+                  <Text style={[styles.roleText, googleRole === 'admin' && styles.activeRoleText]}>Authority Admin</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* City selector */}
+              <Text style={[styles.label, { marginTop: 12 }]}>📍 Your City</Text>
+              <View style={styles.cityGrid}>
+                {SUPPORTED_CITIES.map((city) => (
+                  <TouchableOpacity
+                    key={city}
+                    style={[styles.cityCard, googleCity === city && styles.activeCityCard]}
+                    onPress={() => setGoogleCity(city)}
+                  >
+                    <Text style={[styles.cityName, googleCity === city && styles.activeCityName]}>{city}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.submitButton} onPress={handleGoogleSetupComplete}>
+                <Text style={styles.submitText}>Get Started →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScreenWrapper>
   );
@@ -346,5 +456,66 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontSize: 14,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    color: '#64748B',
+    fontSize: 13,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    borderWidth: 1.5,
+    borderColor: '#4285F4',
+    borderRadius: 10,
+    paddingVertical: 13,
+    gap: 10,
+    marginTop: 12,
+  },
+  googleIcon: {
+    color: '#4285F4',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  googleButtonText: {
+    color: '#E2E8F0',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    color: '#64748B',
+    fontSize: 13,
+    marginBottom: 20,
   },
 });

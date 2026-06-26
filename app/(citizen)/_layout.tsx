@@ -18,7 +18,7 @@ export default function CitizenLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>🏠</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>🏠</Text>
           ),
         }}
       />
@@ -27,7 +27,7 @@ export default function CitizenLayout() {
         options={{
           title: 'Map',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>🗺️</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>🗺️</Text>
           ),
         }}
       />
@@ -47,7 +47,7 @@ export default function CitizenLayout() {
         options={{
           title: 'Events',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>📅</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>📅</Text>
           ),
         }}
       />
@@ -56,7 +56,7 @@ export default function CitizenLayout() {
         options={{
           title: 'Services',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>🛠️</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>🛠️</Text>
           ),
         }}
       />
@@ -65,7 +65,7 @@ export default function CitizenLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 18, fontWeight: focused ? '950' : '400' }}>👤</Text>
+            <Text style={{ color, fontSize: 18, fontWeight: focused ? '900' : '400' }}>👤</Text>
           ),
         }}
       />

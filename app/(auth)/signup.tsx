@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,10 +26,11 @@ const CITY_ICONS: Record<CityOption, string> = {
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { signup, isLoading } = useAuthStore();
+  const { signup, loginWithGoogle, completeGoogleSignup, isLoading } = useAuthStore();
   const [role, setRole] = useState<'citizen' | 'admin'>('citizen');
   const [selectedCity, setSelectedCity] = useState<CityOption | null>(null);
   const [cityError, setCityError] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const { control, handleSubmit, formState: { errors } } = useForm<SignupSchemaType>({
     resolver: zodResolver(signupSchema),
@@ -53,6 +54,25 @@ export default function SignupScreen() {
       } else {
         router.replace('/(admin)/issue-queue');
       }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const mockProfile = { name: 'Google User', email: 'user@gmail.com' };
+      const result = await loginWithGoogle(mockProfile);
+      if (result.success && !result.needsRole) {
+        const { user } = useAuthStore.getState();
+        router.replace(user?.role === 'citizen' ? '/(citizen)/home' : '/(admin)/issue-queue');
+      } else if (result.success && result.needsRole) {
+        // Redirect to login page which has the full setup modal
+        router.replace('/(auth)/login');
+      }
+    } catch {
+      Alert.alert('Error', 'Google Sign-In failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -190,6 +210,29 @@ export default function SignupScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.submitText}>Sign Up</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Google Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Button */}
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading || isLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -365,5 +408,42 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontSize: 14,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    color: '#64748B',
+    fontSize: 13,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    borderWidth: 1.5,
+    borderColor: '#4285F4',
+    borderRadius: 10,
+    paddingVertical: 13,
+    gap: 10,
+    marginTop: 12,
+  },
+  googleIcon: {
+    color: '#4285F4',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  googleButtonText: {
+    color: '#E2E8F0',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

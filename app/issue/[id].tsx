@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Component } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
@@ -9,8 +9,51 @@ import { useSyncStore } from '../../store/useSyncStore';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useNotificationStore } from '../../store/useNotificationStore';
 
-export default function IssueDetailsScreen() {
-  const { id } = useLocalSearchParams();
+// Error Boundary to prevent full app crash
+class IssueErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>⚠️ Something went wrong loading this issue.</Text>
+          <TouchableOpacity onPress={() => this.setState({ hasError: false })} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Safe image component with fallback placeholder
+function SafeImage({ uri, style }: { uri: string; style: any }) {
+  const [error, setError] = useState(false);
+  if (error || !uri) {
+    return (
+      <View style={[style, styles.imageFallback]}>
+        <Text style={styles.imageFallbackText}>📷 Image unavailable</Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      onError={() => setError(true)}
+    />
+  );
+}
+
+function IssueDetailsContent() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { issues, upvoteIssue, addComment } = useIssueStore();
   const { user } = useAuthStore();
@@ -61,13 +104,10 @@ export default function IssueDetailsScreen() {
     if (isOnline) {
       addComment(issue.id, payload.content, payload.userName, payload.isAnonymous);
     } else {
-      // Offline queue
       addToQueue('comment_issue', payload);
-      // Optimistic update
       addComment(issue.id, payload.content, payload.userName, payload.isAnonymous);
     }
 
-    // Trigger Notification for new comment
     addNotification({
       title: '💬 New Comment Added',
       body: `${payload.isAnonymous ? 'Anonymous' : payload.userName} commented on "${issue.title}".`,
@@ -86,8 +126,11 @@ export default function IssueDetailsScreen() {
       case 'under_review': return '#F59E0B';
       case 'in_progress': return '#8B5CF6';
       case 'resolved': return '#10B981';
+      default: return '#64748B';
     }
   };
+
+  const firstImageUrl = issue.imageUrls && issue.imageUrls.length > 0 ? issue.imageUrls[0] : null;
 
   return (
     <ScreenWrapper scrollable>
@@ -99,13 +142,13 @@ export default function IssueDetailsScreen() {
           <Text style={styles.headerBackText}>➔ Close Modal</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Issue Details</Text>
-        <View style={{ width: 60 }} /> {/* balance */}
+        <View style={{ width: 60 }} />
       </View>
 
-      {/* Main Image */}
-      {issue.imageUrls && issue.imageUrls.length > 0 && (
-        <Image source={{ uri: issue.imageUrls[0] }} style={styles.mainImage} />
-      )}
+      {/* Main Image — safe with fallback */}
+      {firstImageUrl ? (
+        <SafeImage uri={firstImageUrl} style={styles.mainImage} />
+      ) : null}
 
       <View style={styles.contentContainer}>
         {/* Category & Status Badges */}
@@ -117,7 +160,7 @@ export default function IssueDetailsScreen() {
             </Text>
           </View>
           <View style={styles.priorityBox}>
-            <Text style={styles.priorityText}>PRIORITY: {issue.priority.toUpperCase()}</Text>
+            <Text style={styles.priorityText}>PRIORITY: {(issue.priority || 'medium').toUpperCase()}</Text>
           </View>
         </View>
 
@@ -134,35 +177,36 @@ export default function IssueDetailsScreen() {
           <View style={styles.mapMock}>
             <Text style={styles.mapText}>Map Preview</Text>
             <Text style={styles.coordLabel}>
-              Lat: {issue.latitude.toFixed(5)}, Lng: {issue.longitude.toFixed(5)}
+              Lat: {issue.latitude?.toFixed(5) ?? '—'}, Lng: {issue.longitude?.toFixed(5) ?? '—'}
             </Text>
           </View>
         </View>
 
         {/* Status Timeline resolution stepper */}
-        <View style={styles.timelineContainer}>
-          <Text style={styles.blockTitle}>📈 Resolution Timeline</Text>
-          
-          <View style={styles.timeline}>
-            {issue.statusHistory.map((history, index) => (
-              <View key={history.id} style={styles.timelineItem}>
-                <View style={styles.stepperCol}>
-                  <View style={[styles.stepperDot, { backgroundColor: getStatusColor(history.statusTo) }]} />
-                  {index < issue.statusHistory.length - 1 && <View style={styles.stepperLine} />}
+        {issue.statusHistory && issue.statusHistory.length > 0 && (
+          <View style={styles.timelineContainer}>
+            <Text style={styles.blockTitle}>📈 Resolution Timeline</Text>
+            <View style={styles.timeline}>
+              {issue.statusHistory.map((history, index) => (
+                <View key={history.id} style={styles.timelineItem}>
+                  <View style={styles.stepperCol}>
+                    <View style={[styles.stepperDot, { backgroundColor: getStatusColor(history.statusTo) }]} />
+                    {index < issue.statusHistory.length - 1 && <View style={styles.stepperLine} />}
+                  </View>
+                  <View style={styles.stepperBody}>
+                    <Text style={styles.stepTitle}>
+                      Status changed to {history.statusTo.replace('_', ' ').toUpperCase()}
+                    </Text>
+                    <Text style={styles.stepComment}>"{history.comment}"</Text>
+                    <Text style={styles.stepAuthor}>
+                      By {history.changedBy} | {new Date(history.createdAt).toLocaleDateString('en-IN')}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.stepperBody}>
-                  <Text style={styles.stepTitle}>
-                    Status changed to {history.statusTo.replace('_', ' ').toUpperCase()}
-                  </Text>
-                  <Text style={styles.stepComment}>"{history.comment}"</Text>
-                  <Text style={styles.stepAuthor}>
-                    By {history.changedBy} | {new Date(history.createdAt).toLocaleDateString('en-IN')}
-                  </Text>
-                </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Upvotes block */}
         <View style={styles.upvoteContainer}>
@@ -179,11 +223,11 @@ export default function IssueDetailsScreen() {
 
         {/* Comments Section */}
         <View style={styles.commentsSection}>
-          <Text style={styles.blockTitle}>💬 Comments ({issue.comments.length})</Text>
+          <Text style={styles.blockTitle}>💬 Comments ({issue.comments?.length ?? 0})</Text>
 
           {/* Comment List */}
           <View style={styles.commentList}>
-            {issue.comments.map((c) => (
+            {(issue.comments ?? []).map((c) => (
               <View key={c.id} style={styles.commentItem}>
                 <Text style={styles.commentUser}>
                   {c.isAnonymous ? 'Anonymous' : c.userName}
@@ -216,7 +260,7 @@ export default function IssueDetailsScreen() {
                     trackColor={{ false: '#334155', true: '#0284C7' }}
                   />
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={handlePostComment}
                   style={styles.postCommentBtn}
                   disabled={postingComment}
@@ -232,17 +276,27 @@ export default function IssueDetailsScreen() {
   );
 }
 
+export default function IssueDetailsScreen() {
+  return (
+    <IssueErrorBoundary>
+      <IssueDetailsContent />
+    </IssueErrorBoundary>
+  );
+}
+
 const styles = StyleSheet.create({
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: '#0F172A',
   },
   errorText: {
     color: '#EF4444',
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
   },
   backBtn: {
     marginTop: 12,
@@ -254,6 +308,15 @@ const styles = StyleSheet.create({
   backBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  imageFallback: {
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageFallbackText: {
+    color: '#64748B',
+    fontSize: 14,
   },
   detailHeader: {
     flexDirection: 'row',
@@ -289,6 +352,7 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
     marginBottom: 12,
+    flexWrap: 'wrap',
   },
   categoryTag: {
     backgroundColor: '#334155',
@@ -345,7 +409,7 @@ const styles = StyleSheet.create({
   blockTitle: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '850',
+    fontWeight: '800',
     marginBottom: 12,
   },
   mapMock: {

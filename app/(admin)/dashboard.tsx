@@ -48,6 +48,11 @@ export default function AdminDashboardScreen() {
   const avgResponse = responseCount > 0 ? (totalResponseHours / responseCount).toFixed(1) : '2.4'; // default mock if no logs
   const avgResolution = resolutionCount > 0 ? (totalResolutionHours / resolutionCount).toFixed(1) : '18.5';
 
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
+  };
+
   return (
     <ScreenWrapper scrollable>
       <View style={styles.header}>
@@ -56,10 +61,7 @@ export default function AdminDashboardScreen() {
           <Text style={styles.subtitle}>{user?.fullName || 'Ward Officer'}</Text>
         </View>
         <TouchableOpacity 
-          onPress={() => {
-            logout();
-            router.replace('/(auth)/login');
-          }}
+          onPress={handleLogout}
           style={styles.logoutBtn}
         >
           <Text style={styles.logoutText}>Logout</Text>
@@ -185,7 +187,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#E2E8F0',
     fontSize: 15,
-    fontWeight: '850',
+    fontWeight: '800',
     letterSpacing: 0.5,
     marginBottom: 16,
   },

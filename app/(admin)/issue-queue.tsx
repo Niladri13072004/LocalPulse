@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '750',
+    fontWeight: '700',
     marginBottom: 4,
   },
   cardDesc: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: '#94A3B8',
-    fontWeight: '750',
+    fontWeight: '700',
   },
   confirmBtn: {
     flex: 2,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: '#FFFFFF',
-    fontWeight: '750',
+    fontWeight: '700',
   },
   emptyContainer: {
     alignItems: 'center',

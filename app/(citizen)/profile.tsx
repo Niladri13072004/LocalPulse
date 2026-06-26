@@ -19,8 +19,8 @@ export default function CitizenProfileScreen() {
   const { isOnline } = useOfflineSync();
   const { addToQueue } = useSyncStore();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.replace('/(auth)/login');
   };
 
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#E2E8F0',
     fontSize: 15,
-    fontWeight: '850',
+    fontWeight: '800',
     letterSpacing: 0.5,
     marginBottom: 12,
   },
