@@ -35,6 +35,7 @@ export default function CivicAcademyScreen() {
                 </View>
                 
                 <TouchableOpacity 
+                  accessibilityRole="button"
                   onPress={() => toggleBookmark(item.id)}
                   style={styles.bookmarkBtn}
                 >
@@ -54,6 +55,7 @@ export default function CivicAcademyScreen() {
                   </View>
                 ) : (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     onPress={() => router.push(`/quiz/${item.id}`)}
                     style={styles.quizBtn}
                   >
@@ -83,6 +85,7 @@ export default function CivicAcademyScreen() {
             <View style={styles.filterRow}>
               {(['All', 'Bookmarked'] as const).map((filter) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={filter}
                   onPress={() => setActiveFilter(filter)}
                   style={[styles.filterTab, activeFilter === filter && styles.filterTabActive]}

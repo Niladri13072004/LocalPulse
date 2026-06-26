@@ -55,7 +55,7 @@ def init_driver():
             raise e
 
 def find_and_click_text(driver, text, timeout=20):
-    xpath = f"//*[text()='{text}' or contains(text(), '{text}')]"
+    xpath = f"//div[@role='button'][contains(., '{text}')] | //*[text()='{text}' or contains(text(), '{text}')]"
     element = WebDriverWait(driver, timeout).until(
         EC.element_to_be_clickable((By.XPATH, xpath))
     )
@@ -174,7 +174,7 @@ def run_automation():
         
         # Map View
         print("Navigating to Map view...")
-        driver.get("http://localhost:8085/map")
+        find_and_click_text(driver, "Map")
         time.sleep(2)
         check_for_crashes(driver, "Citizen Map")
         save_screenshot_robust(driver, "07_citizen_map.png")
@@ -182,7 +182,7 @@ def run_automation():
         
         # Services view
         print("Navigating to Services view...")
-        driver.get("http://localhost:8085/services")
+        find_and_click_text(driver, "Services")
         time.sleep(2)
         check_for_crashes(driver, "Citizen Services")
         save_screenshot_robust(driver, "08_citizen_services.png")
@@ -190,7 +190,9 @@ def run_automation():
         
         # Civic Academy (Learn) view
         print("Navigating to Learn view...")
-        driver.get("http://localhost:8085/learn")
+        find_and_click_text(driver, "Home")
+        time.sleep(1)
+        find_and_click_text(driver, "Civic Academy")
         time.sleep(2)
         check_for_crashes(driver, "Citizen Learn")
         save_screenshot_robust(driver, "09_citizen_learn.png")
@@ -198,38 +200,22 @@ def run_automation():
         
         # Quiz l-1 view
         print("Navigating to Quiz l-1...")
-        driver.get("http://localhost:8085/quiz/l-1")
+        find_and_click_text(driver, "Take Lesson Quiz")
         time.sleep(3)
         check_for_crashes(driver, "Quiz l-1 Start")
         save_screenshot_robust(driver, "10_citizen_quiz_start.png")
         print("Captured quiz start.")
         
-        # Use JavaScript to click quiz options (React Native Web TouchableOpacity needs JS clicks)
+        # Use robust text-based selectors to click quiz options and navigation buttons
         try:
-            # Click "Ward Councillor (Parshad)" option using JS
-            driver.execute_script("""
-                var elements = document.querySelectorAll('div[role="button"]');
-                for (var el of elements) {
-                    if (el.textContent.includes('Ward Councillor')) {
-                        el.click();
-                        break;
-                    }
-                }
-            """)
+            # Click "Ward Councillor (Parshad)" option
+            find_and_click_text(driver, "Ward Councillor")
             time.sleep(1.5)
             save_screenshot_robust(driver, "10b_quiz_q1_answered.png")
             print("Answered Q1.")
             
             # Click "Next Question" button
-            driver.execute_script("""
-                var elements = document.querySelectorAll('div[role="button"]');
-                for (var el of elements) {
-                    if (el.textContent.includes('Next Question')) {
-                        el.click();
-                        break;
-                    }
-                }
-            """)
+            find_and_click_text(driver, "Next Question")
             time.sleep(1.5)
             
             check_for_crashes(driver, "Quiz l-1 Q2")
@@ -237,27 +223,11 @@ def run_automation():
             print("Captured quiz question 2.")
             
             # Click second answer
-            driver.execute_script("""
-                var elements = document.querySelectorAll('div[role="button"]');
-                for (var el of elements) {
-                    if (el.textContent.includes('Representing ward problems')) {
-                        el.click();
-                        break;
-                    }
-                }
-            """)
+            find_and_click_text(driver, "Representing ward problems")
             time.sleep(1.5)
             
             # Click "Finish Quiz"
-            driver.execute_script("""
-                var elements = document.querySelectorAll('div[role="button"]');
-                for (var el of elements) {
-                    if (el.textContent.includes('Finish Quiz')) {
-                        el.click();
-                        break;
-                    }
-                }
-            """)
+            find_and_click_text(driver, "Finish Quiz")
             time.sleep(2)
             
             check_for_crashes(driver, "Quiz l-1 Completed")
@@ -291,7 +261,7 @@ def run_automation():
         
         # Admin Dashboard
         print("Navigating to Admin Dashboard...")
-        driver.get("http://localhost:8085/dashboard")
+        find_and_click_text(driver, "Dashboard")
         time.sleep(2)
         check_for_crashes(driver, "Admin Dashboard")
         save_screenshot_robust(driver, "14_admin_dashboard.png")
@@ -299,7 +269,7 @@ def run_automation():
         
         # Issue queue
         print("Navigating to Issue Queue...")
-        driver.get("http://localhost:8085/issue-queue")
+        find_and_click_text(driver, "Issue Queue")
         time.sleep(2)
         check_for_crashes(driver, "Admin Issue Queue")
         save_screenshot_robust(driver, "15_admin_issue_queue.png")
@@ -307,7 +277,7 @@ def run_automation():
         
         # Heatmap
         print("Navigating to Heatmap...")
-        driver.get("http://localhost:8085/heatmap")
+        find_and_click_text(driver, "Heatmap")
         time.sleep(2)
         check_for_crashes(driver, "Admin Heatmap")
         save_screenshot_robust(driver, "16_admin_heatmap.png")
@@ -315,7 +285,9 @@ def run_automation():
         
         # Ward detail / reports
         print("Navigating to Ward Detail / Reports...")
-        driver.get("http://localhost:8085/ward-detail")
+        find_and_click_text(driver, "Dashboard")
+        time.sleep(1)
+        find_and_click_text(driver, "View Detailed Ward Reports")
         time.sleep(2)
         check_for_crashes(driver, "Admin Ward Reports")
         save_screenshot_robust(driver, "17_admin_ward_reports.png")

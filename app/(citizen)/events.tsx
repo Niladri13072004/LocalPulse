@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import AppHeader from '../../components/AppHeader';
@@ -45,7 +45,26 @@ const mockEvents: EventItem[] = [
 ];
 
 export default function CitizenEventsScreen() {
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/events');
+        if (res.ok) {
+          const data = await res.json();
+          setEvents(data);
+        } else {
+          setEvents(mockEvents);
+        }
+      } catch (err) {
+        console.error('Failed to fetch events from backend:', err);
+        setEvents(mockEvents);
+      }
+    };
+    fetchEvents();
+  }, []);
 
   const toggleJoinEvent = (id: string) => {
     if (joinedEvents.includes(id)) {
@@ -61,7 +80,7 @@ export default function CitizenEventsScreen() {
       <OfflineBanner />
 
       <FlatList
-        data={mockEvents}
+        data={events}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const isRSVP = joinedEvents.includes(item.id);

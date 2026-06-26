@@ -23,7 +23,7 @@ export default function QuizScreen() {
       <ScreenWrapper>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Quiz not found.</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => router.back()} style={styles.backBtn}>
             <Text style={styles.backBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -92,6 +92,7 @@ export default function QuizScreen() {
 
               return (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={idx}
                   onPress={() => handleSelectOption(idx)}
                   disabled={selectedOpt !== null}
@@ -110,7 +111,7 @@ export default function QuizScreen() {
                 {selectedOpt === currentQuestion.correctIndex ? '🎉 Correct Answer!' : '❌ Incorrect.'}
               </Text>
               
-              <TouchableOpacity onPress={handleNext} style={styles.nextBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={handleNext} style={styles.nextBtn}>
                 <Text style={styles.nextText}>
                   {currentIdx === quiz.questions.length - 1 ? 'Finish Quiz' : 'Next Question ➔'}
                 </Text>
@@ -136,6 +137,7 @@ export default function QuizScreen() {
           </View>
 
           <TouchableOpacity 
+            accessibilityRole="button"
             onPress={() => router.replace('/(citizen)/learn')} 
             style={styles.closeBtn}
           >

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
@@ -9,76 +9,76 @@ import { useIssueStore, Issue } from '../../store/useIssueStore';
 import { useDraftStore } from '../../store/useDraftStore';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useLocation } from '../../hooks/useLocation';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const CATEGORIES = ['All', 'Pothole', 'Water Logging', 'Garbage', 'Electricity', 'Safety', 'Others'];
 const RADII = [1, 3, 5, 10]; // in km
 
-// Haversine formula
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+// Radius-to-max-issue-count mapping for density simulation
+const RADIUS_LIMITS: Record<number, number> = {
+  1: 5,
+  3: 12,
+  5: 20,
+  10: 999, // show all
+};
 
 export default function CitizenHomeScreen() {
   const router = useRouter();
-  const { issues } = useIssueStore();
+  const { issues, fetchIssues } = useIssueStore();
   const { drafts } = useDraftStore();
   const { isOnline } = useOfflineSync();
   const { location } = useLocation();
+  const { user } = useAuthStore();
 
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedRadius, setSelectedRadius] = useState(5); // 5km default
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'trending'>('recent');
 
-  // Filter issues based on criteria
-  const filteredIssues = issues.filter((issue) => {
-    // 1. Filter Category
-    if (selectedCategory !== 'All' && issue.category !== selectedCategory) {
-      return false;
-    }
-    // 2. Filter Status
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'in_progress' && (issue.status !== 'in_progress' && issue.status !== 'under_review')) {
-        return false;
-      }
-      if (statusFilter !== 'in_progress' && issue.status !== statusFilter) {
-        return false;
-      }
-    }
-    // 3. Proximity Radius check using user's GPS
-    if (location) {
-      const dist = getDistance(
-        location.coords.latitude,
-        location.coords.longitude,
-        issue.latitude,
-        issue.longitude
-      );
-      if (dist > selectedRadius) {
-        return false;
-      }
-    }
-    return true;
-  });
+  const userCity = user?.city || 'Indore';
 
-  // Calculate trending scores and sort
-  const sortedIssues = [...filteredIssues].sort((a, b) => {
-    if (sortBy === 'trending') {
-      const getScore = (item: Issue) => {
-        const hours = (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60);
-        return (item.upvotes + item.comments.length * 2) / Math.pow(hours + 2, 1.5);
-      };
-      return getScore(b) - getScore(a);
-    } else {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  useEffect(() => {
+    fetchIssues({
+      status: statusFilter,
+      category: selectedCategory,
+      radius: selectedRadius,
+      latitude: location?.coords?.latitude,
+      longitude: location?.coords?.longitude,
+    });
+  }, [statusFilter, selectedCategory, selectedRadius, location?.coords?.latitude, location?.coords?.longitude, fetchIssues]);
+
+  // Filter by user's city, apply radius density, then sort
+  const filteredAndSortedIssues = useMemo(() => {
+    // Step 1: Filter by user's city
+    let cityFiltered = issues.filter((issue) => issue.city === userCity);
+
+    // Step 2: Apply category filter (if not already handled by backend)
+    if (selectedCategory !== 'All') {
+      cityFiltered = cityFiltered.filter((issue) => issue.category === selectedCategory);
     }
-  });
+
+    // Step 3: Apply status filter
+    if (statusFilter !== 'all') {
+      cityFiltered = cityFiltered.filter((issue) => issue.status === statusFilter);
+    }
+
+    // Step 4: Sort
+    const sorted = [...cityFiltered].sort((a, b) => {
+      if (sortBy === 'trending') {
+        const getScore = (item: Issue) => {
+          const hours = Math.max(0, (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60));
+          return (item.upvotes + item.comments.length * 2) / Math.pow(hours + 2, 1.5);
+        };
+        return getScore(b) - getScore(a);
+      } else {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    // Step 5: Apply radius-based density limiting
+    const maxIssues = RADIUS_LIMITS[selectedRadius] || 999;
+    return sorted.slice(0, maxIssues);
+  }, [issues, userCity, selectedCategory, statusFilter, sortBy, selectedRadius]);
 
   return (
     <ScreenWrapper>
@@ -86,11 +86,21 @@ export default function CitizenHomeScreen() {
       <OfflineBanner />
 
       <FlatList
-        data={sortedIssues}
+        data={filteredAndSortedIssues}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <IssueCard issue={item} />}
         ListHeaderComponent={
           <View style={styles.headerSection}>
+            {/* City Badge */}
+            <View style={styles.cityBadgeRow}>
+              <View style={styles.cityBadge}>
+                <Text style={styles.cityBadgeText}>📍 {userCity}</Text>
+              </View>
+              <Text style={styles.cityBadgeHint}>
+                Showing issues near you
+              </Text>
+            </View>
+
             {/* Drafts Alert section */}
             {!isOnline && drafts.length > 0 && (
               <View style={styles.draftContainer}>
@@ -107,6 +117,7 @@ export default function CitizenHomeScreen() {
 
             {/* Civic Academy Banner */}
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => router.push('/(citizen)/learn')}
               style={styles.academyBanner}
             >
@@ -138,6 +149,9 @@ export default function CitizenHomeScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              <Text style={styles.radiusCountHint}>
+                {filteredAndSortedIssues.length} issue{filteredAndSortedIssues.length !== 1 ? 's' : ''} within {selectedRadius} km
+              </Text>
             </View>
 
             {/* Category Filter */}
@@ -207,8 +221,8 @@ export default function CitizenHomeScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>No reports found in this radius.</Text>
-            <Text style={styles.emptySubtext}>Be the first to report issues in this category!</Text>
+            <Text style={styles.emptyText}>No reports found in {userCity}.</Text>
+            <Text style={styles.emptySubtext}>Try increasing the search radius or be the first to report!</Text>
           </View>
         }
       />
@@ -223,6 +237,29 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     marginBottom: 16,
+  },
+  cityBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 10,
+  },
+  cityBadge: {
+    backgroundColor: '#0C4A6E',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: '#0EA5E9',
+  },
+  cityBadgeText: {
+    color: '#7DD3FC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cityBadgeHint: {
+    color: '#64748B',
+    fontSize: 12,
   },
   draftContainer: {
     backgroundColor: '#3F2D06',
@@ -290,6 +327,13 @@ const styles = StyleSheet.create({
   activeRadiusText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  radiusCountHint: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 6,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   categoryScroll: {
     gap: 8,

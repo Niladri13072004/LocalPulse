@@ -38,7 +38,7 @@ export function useOfflineSync() {
         }
 
         // 2. Add issue to the main store
-        addIssue({
+        await addIssue({
           title,
           description,
           category,
@@ -61,13 +61,13 @@ export function useOfflineSync() {
 
       case 'upvote_issue': {
         const { issueId, userId } = item.payload;
-        upvoteIssue(issueId, userId);
+        await upvoteIssue(issueId, userId);
         return true;
       }
 
       case 'comment_issue': {
         const { issueId, content, userName, isAnonymous } = item.payload;
-        addComment(issueId, content, userName, isAnonymous);
+        await addComment(issueId, content, userName, isAnonymous);
         addXP(5); // 5 XP for commenting and participating
         return true;
       }

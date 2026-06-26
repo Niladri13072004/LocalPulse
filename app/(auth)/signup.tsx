@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useAuthStore, SUPPORTED_CITIES, CityOption } from '../../store/useAuthStore';
 
 const signupSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -15,10 +15,21 @@ const signupSchema = z.object({
 
 type SignupSchemaType = z.infer<typeof signupSchema>;
 
+const CITY_ICONS: Record<CityOption, string> = {
+  Indore: '🏛️',
+  Patna: '🌊',
+  Jaipur: '🏰',
+  Lucknow: '🕌',
+  Nagpur: '🍊',
+  Kolkata: '🌉',
+};
+
 export default function SignupScreen() {
   const router = useRouter();
   const { signup, isLoading } = useAuthStore();
   const [role, setRole] = useState<'citizen' | 'admin'>('citizen');
+  const [selectedCity, setSelectedCity] = useState<CityOption | null>(null);
+  const [cityError, setCityError] = useState(false);
 
   const { control, handleSubmit, formState: { errors } } = useForm<SignupSchemaType>({
     resolver: zodResolver(signupSchema),
@@ -30,7 +41,12 @@ export default function SignupScreen() {
   });
 
   const onSubmit = async (data: SignupSchemaType) => {
-    const success = await signup(data.fullName, data.email, role);
+    if (!selectedCity) {
+      setCityError(true);
+      return;
+    }
+    setCityError(false);
+    const success = await signup(data.fullName, data.email, role, selectedCity);
     if (success) {
       if (role === 'citizen') {
         router.replace('/(citizen)/home');
@@ -133,9 +149,40 @@ export default function SignupScreen() {
             {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
           </View>
 
+          {/* City Selection */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>📍 Select Your City</Text>
+            <Text style={styles.cityHint}>You'll see issues and events from this city</Text>
+            <View style={styles.cityGrid}>
+              {SUPPORTED_CITIES.map((city) => (
+                <TouchableOpacity
+                  key={city}
+                  style={[
+                    styles.cityCard,
+                    selectedCity === city && styles.activeCityCard,
+                    cityError && !selectedCity && styles.cityCardError,
+                  ]}
+                  onPress={() => {
+                    setSelectedCity(city);
+                    setCityError(false);
+                  }}
+                >
+                  <Text style={styles.cityIcon}>{CITY_ICONS[city]}</Text>
+                  <Text style={[
+                    styles.cityName,
+                    selectedCity === city && styles.activeCityName,
+                  ]}>
+                    {city}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {cityError && <Text style={styles.errorText}>Please select your city</Text>}
+          </View>
+
           {/* Submit button */}
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[styles.submitButton, !selectedCity && styles.submitButtonDisabled]}
             onPress={handleSubmit(onSubmit)}
             disabled={isLoading}
           >
@@ -221,6 +268,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  cityHint: {
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: -2,
+  },
   input: {
     backgroundColor: '#1E293B',
     color: '#FFFFFF',
@@ -239,6 +291,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  cityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  cityCard: {
+    width: '30%',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    minWidth: 90,
+    flexGrow: 1,
+    flexBasis: '28%',
+  },
+  activeCityCard: {
+    backgroundColor: '#0C4A6E',
+    borderColor: '#0EA5E9',
+    shadowColor: '#0EA5E9',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  cityCardError: {
+    borderColor: '#EF444480',
+  },
+  cityIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  cityName: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  activeCityName: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   submitButton: {
     backgroundColor: '#0284C7',
     paddingVertical: 14,
@@ -246,6 +343,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   submitText: {
     color: '#FFFFFF',

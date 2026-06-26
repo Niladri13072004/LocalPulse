@@ -64,3 +64,59 @@ This walkthrough documents the verified features across completed modules of the
    - Configured robust selectors for login inputs (type='email', type='password', placeholders) and login buttons.
    - Implemented event dispatching (`input` and `change`) on form fields.
    - Added JS-based fallback clicks and multi-path screenshot saving to handle multiple environments reliably.
+6. **E2E Verification Flow Fixes**:
+   - **Database Relative Paths**: Updated `server/db.py` to use relative paths for `DB_DIR` and `DB_PATH`, ensuring portability across environments.
+   - **Server Execution CWD**: Configured the background server start in `server/verify.py` to use a relative `cwd`.
+   - **Input Validation**: Hardened `_handle_post_issue` in `server/server.py` to convert and validate `latitude` and `longitude` as floats, and fallback invalid `priority` values to `medium`.
+   - **User Re-use in Comments**: Corrected `_handle_post_comment` in `server/server.py` to search for existing user records by email before registering new users, eliminating unique email constraint violations and orphaned records.
+   - **Accessibility Roles on Frontend**: Added `accessibilityRole="button"` to `<TouchableOpacity>` elements in `app/quiz/[id].tsx` and `app/(citizen)/learn.tsx` to enable proper compilation to clickable buttons in React Native Web.
+   - **Zustand Auth State Navigation Fix**: Updated `automate_run.py` to perform client-side navigation (clicking navigation buttons, tabs, and banners) rather than hard reloads (`driver.get()`). This preserves the in-memory Zustand auth state during transition, avoiding auth state loss and login loops.
+   - **Robust Quiz Selector**: Configured `automate_run.py` to locate quiz options and control buttons using robust text-based selectors via `find_and_click_text()`.
+   - **Screenshots Saved**: Captured verification flow screenshots in `C:\Users\HP\.gemini\antigravity\scratch\LocalPulse\screenshots`:
+     - `02_onboarding_1.png` — Onboarding Flow Slide 1
+     - `03_onboarding_2.png` — Onboarding Flow Slide 2
+     - `04_onboarding_3.png` — Onboarding Flow Slide 3
+     - `05_login.png` — Citizen Login Screen
+     - `06_citizen_home.png` — Citizen Homepage Feed
+     - `07_citizen_map.png` — Citizen Map View
+     - `08_citizen_services.png` — Crowdsourced Services Directory
+     - `09_citizen_learn.png` — Civic Academy Lessons Page
+     - `10_citizen_quiz_start.png` — Lesson Quiz Start Screen
+     - `10b_quiz_q1_answered.png` — Answered First Question
+     - `11_citizen_quiz_question2.png` — Second Question Screen
+     - `12_citizen_quiz_completed.png` — Quiz Completed & XP Reward Screen
+     - `13_admin_login.png` — Admin Authority Login Screen
+     - `14_admin_dashboard.png` — Admin Performance Metrics Dashboard
+     - `15_admin_issue_queue.png` — Admin Moderation Queue
+     - `16_admin_heatmap.png` — Issue Density Map
+     - `17_admin_ward_reports.png` — Ward Efficiency & Performance Analytics Report
+
+---
+
+## 🛠️ Additional Correctness & Robustness Fixes (Implemented)
+
+1. **Import Alert in React Native Web Form**:
+   - Added missing destructured import of `Alert` from `react-native` in `app/(citizen)/create.tsx`.
+
+2. **Database User Resolution on Issue Creation**:
+   - In `server/server.py` (`_handle_post_issue`), modified user query resolution to check by the generated email address instead of `full_name`. This mirrors the robust lookup logic used in comments creation and avoids duplicates/conflicts when users share names.
+
+3. **SQLite Foreign Keys Enforcement**:
+   - Ensured SQLite connection schema integrity by executing `conn.execute("PRAGMA foreign_keys = ON;")` immediately after establishing any connection in `server/server.py`.
+
+4. **Coordinate Boundary Validations**:
+   - Hardened coordinates intake in `server/server.py` (`_handle_post_issue`) by verifying that latitude is strictly in `[-90.0, 90.0]` and longitude is in `[-180.0, 180.0]`. If coordinates fall outside bounds, the handler returns a `400 Bad Request` error.
+
+5. **Clamping Trending Score Hours**:
+   - Modified `getScore` in `app/(citizen)/home.tsx` to clamp elapsed hours using `Math.max(0, ...)` to prevent negative time calculations and division by zero or NaN issues when local device system clocks are out of sync.
+
+6. **Subprocess Pipe Deadlocks Fix**:
+   - Changed background process streams (backend and frontend start) in `run_verification.py` to target `subprocess.DEVNULL` instead of `subprocess.PIPE`. This prevents system buffer exhaustion/deadlocks on Windows.
+
+7. **Selenium Click Propagation XPath Query**:
+   - Modified the XPath pattern in `automate_run.py` (`find_and_click_text`) to prioritize elements with `role='button'` containing the text: `xpath = f"//div[@role='button'][contains(., '{text}')] | //*[text()='{text}' or contains(text(), '{text}')]"`. This targets the parent container button, ensuring clicks properly bubble up and invoke React Native web handlers.
+
+8. **Screenshot Cleanup**:
+   - Added logic to automatically delete stale `.png` files in the screenshots directory before starting new E2E verification runs in `run_verification.py`.
+
+

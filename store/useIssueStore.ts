@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { useSyncStore } from './useSyncStore';
+import { seedIssues as importedSeedIssues } from './seedIssues';
 
 export interface Comment {
   id: string;
@@ -41,195 +43,73 @@ export interface Issue {
 
 interface IssueState {
   issues: Issue[];
-  addIssue: (issue: Omit<Issue, 'id' | 'upvotes' | 'upvotedByUser' | 'comments' | 'statusHistory' | 'createdAt'>) => Issue;
-  upvoteIssue: (id: string, userId: string) => void;
-  addComment: (issueId: string, content: string, userName: string, isAnonymous: boolean) => void;
-  updateStatus: (issueId: string, newStatus: Issue['status'], changedBy: string, comment: string) => void;
+  fetchIssues: (params?: {
+    status?: string;
+    category?: string;
+    radius?: number;
+    latitude?: number;
+    longitude?: number;
+  }) => Promise<void>;
+  addIssue: (issue: Omit<Issue, 'id' | 'upvotes' | 'upvotedByUser' | 'comments' | 'statusHistory' | 'createdAt'>) => Promise<Issue>;
+  upvoteIssue: (id: string, userId: string) => Promise<void>;
+  addComment: (issueId: string, content: string, userName: string, isAnonymous: boolean) => Promise<void>;
+  updateStatus: (issueId: string, newStatus: Issue['status'], changedBy: string, comment: string) => Promise<void>;
 }
 
-// Rich seed data for the 6 demo cities
-const seedIssues: Issue[] = [
-  {
-    id: 'issue-indore-1',
-    title: 'Major Potholes near Rajwada Gate',
-    description: 'Multiple deep potholes right in front of the main entrance to Rajwada palace. It is causing extreme traffic congestion and posing a hazard to two-wheeler riders.',
-    category: 'Pothole',
-    imageUrls: ['https://images.unsplash.com/photo-1515162305285-0293e4767cc2?q=80&w=600'],
-    latitude: 22.7196,
-    longitude: 75.8577,
-    wardName: 'Rajwada Ward',
-    city: 'Indore',
-    isAnonymous: false,
-    reporterName: 'Aman Verma',
-    status: 'under_review',
-    priority: 'high',
-    departmentName: 'Road Department',
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    upvotes: 45,
-    upvotedByUser: false,
-    comments: [
-      {
-        id: 'c1',
-        userName: 'Siddharth Jain',
-        content: 'Almost slipped here yesterday on my scooty. Glad this has been reported!',
-        isAnonymous: false,
-        createdAt: new Date(Date.now() - 2.5 * 24 * 60 * 60 * 1000).toISOString(),
+export const useIssueStore = create<IssueState>((set, get) => ({
+  issues: importedSeedIssues as Issue[],
+  fetchIssues: async (params) => {
+    try {
+      const queryParts: string[] = [];
+      if (params) {
+        if (params.status && params.status !== 'all') {
+          queryParts.push(`status=${encodeURIComponent(params.status)}`);
+        }
+        if (params.category && params.category !== 'All') {
+          queryParts.push(`category=${encodeURIComponent(params.category)}`);
+        }
+        if (params.radius !== undefined) {
+          queryParts.push(`radius=${params.radius}`);
+        }
+        if (params.latitude !== undefined) {
+          queryParts.push(`latitude=${params.latitude}`);
+        }
+        if (params.longitude !== undefined) {
+          queryParts.push(`longitude=${params.longitude}`);
+        }
       }
-    ],
-    statusHistory: [
-      {
-        id: 'sh1',
-        statusFrom: null,
-        statusTo: 'open',
-        changedBy: 'System',
-        comment: 'Issue reported and mapped to Rajwada Ward.',
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'sh2',
-        statusFrom: 'open',
-        statusTo: 'under_review',
-        changedBy: 'Officer Vikram Singh',
-        comment: 'Assigned to the road maintenance inspection team.',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+      const res = await fetch(`http://localhost:5000/api/issues${queryString}`);
+      if (res.ok) {
+        const issuesData: Issue[] = await res.json();
+        set({ issues: issuesData });
       }
-    ]
+    } catch (err) {
+      console.error('Failed to fetch issues:', err);
+    }
   },
-  {
-    id: 'issue-patna-1',
-    title: 'Severe Water Logging in Kankarbagh Sector-H',
-    description: 'Following yesterday\'s moderate rainfall, the main road of Sector-H is completely submerged under 2 feet of water. Drains appear to be completely choked with trash.',
-    category: 'Water Logging',
-    imageUrls: ['https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=600'],
-    latitude: 25.5940,
-    longitude: 85.1560,
-    wardName: 'Kankarbagh Ward',
-    city: 'Patna',
-    isAnonymous: true,
-    reporterName: 'Anonymous Citizen',
-    status: 'open',
-    priority: 'critical',
-    departmentName: 'Drainage & Water Team',
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-    upvotes: 82,
-    upvotedByUser: false,
-    comments: [],
-    statusHistory: [
-      {
-        id: 'sh-patna-1',
-        statusFrom: null,
-        statusTo: 'open',
-        changedBy: 'System',
-        comment: 'Issue reported and mapped to Kankarbagh Ward.',
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+  addIssue: async (issueData) => {
+    const isOnline = useSyncStore.getState().isOnline;
+    if (isOnline) {
+      try {
+        const res = await fetch('http://localhost:5000/api/issues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(issueData),
+        });
+        if (res.ok) {
+          const newIssue: Issue = await res.json();
+          set((state) => ({
+            issues: [newIssue, ...state.issues]
+          }));
+          return newIssue;
+        }
+      } catch (err) {
+        console.error('Failed to add issue on backend:', err);
       }
-    ]
-  },
-  {
-    id: 'issue-jaipur-1',
-    title: 'Overflowing Waste Bin in Johri Bazar',
-    description: 'The community garbage bin is overflowing. Garbage is scattered all over the road, creating an intolerable smell and attracting stray animals.',
-    category: 'Garbage',
-    imageUrls: ['https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?q=80&w=600'],
-    latitude: 26.9215,
-    longitude: 75.8242,
-    wardName: 'Pink City Ward',
-    city: 'Jaipur',
-    isAnonymous: false,
-    reporterName: 'Neha Sharma',
-    status: 'in_progress',
-    priority: 'medium',
-    departmentName: 'Sanitation & Waste Dept',
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-    upvotes: 21,
-    upvotedByUser: false,
-    comments: [],
-    statusHistory: [
-      {
-        id: 'sh-jaipur-1',
-        statusFrom: null,
-        statusTo: 'open',
-        changedBy: 'System',
-        comment: 'Issue reported and mapped to Pink City Ward.',
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'sh-jaipur-2',
-        statusFrom: 'open',
-        statusTo: 'under_review',
-        changedBy: 'Officer Rahul Gupta',
-        comment: 'Reviewing waste collection schedule for Johri Bazar.',
-        createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'sh-jaipur-3',
-        statusFrom: 'under_review',
-        statusTo: 'in_progress',
-        changedBy: 'Officer Rahul Gupta',
-        comment: 'Sanitation truck dispatched for clearance and clean-up.',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      }
-    ]
-  },
-  {
-    id: 'issue-lucknow-1',
-    title: 'Broken Streetlights causing dark spot near Hazratganj Metro',
-    description: 'Three consecutive streetlights on the side street near Hazratganj metro station exit are non-functional. The lane becomes pitch dark after 7 PM, creating a safety hazard, especially for women.',
-    category: 'Electricity',
-    imageUrls: ['https://images.unsplash.com/photo-1509395062183-67c5ad6faff9?q=80&w=600'],
-    latitude: 26.8510,
-    longitude: 80.9425,
-    wardName: 'Hazratganj Ward',
-    city: 'Lucknow',
-    isAnonymous: false,
-    reporterName: 'Divya Rastogi',
-    status: 'resolved',
-    priority: 'high',
-    departmentName: 'Electricity Board',
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
-    upvotes: 94,
-    upvotedByUser: false,
-    comments: [
-      {
-        id: 'lc1',
-        userName: 'Rakesh Yadav',
-        content: 'Yes, this was really scary. Thanks to the team for fixing it!',
-        isAnonymous: false,
-        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-      }
-    ],
-    statusHistory: [
-      {
-        id: 'sh-luck-1',
-        statusFrom: null,
-        statusTo: 'open',
-        changedBy: 'System',
-        comment: 'Issue reported and mapped to Hazratganj Ward.',
-        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'sh-luck-2',
-        statusFrom: 'open',
-        statusTo: 'in_progress',
-        changedBy: 'Officer Alok Mishra',
-        comment: 'Repair order raised with electrical contractor.',
-        createdAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'sh-luck-3',
-        statusFrom: 'in_progress',
-        statusTo: 'resolved',
-        changedBy: 'Officer Alok Mishra',
-        comment: 'Bulbs and wiring replaced. All streetlights are working fine now.',
-        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-      }
-    ]
-  }
-];
+    }
 
-export const useIssueStore = create<IssueState>((set) => ({
-  issues: seedIssues,
-  addIssue: (issueData) => {
+    // Offline / Fallback local insert
     const id = 'issue-' + Math.random().toString(36).substr(2, 9);
     const createdAt = new Date().toISOString();
     const newIssue: Issue = {
@@ -250,62 +130,158 @@ export const useIssueStore = create<IssueState>((set) => ({
         }
       ]
     };
-
     set((state) => ({
       issues: [newIssue, ...state.issues]
     }));
-
     return newIssue;
   },
-  upvoteIssue: (id, userId) => set((state) => ({
-    issues: state.issues.map((issue) => {
-      if (issue.id === id) {
-        const upvoted = !issue.upvotedByUser;
-        return {
-          ...issue,
-          upvotedByUser: upvoted,
-          upvotes: upvoted ? issue.upvotes + 1 : issue.upvotes - 1,
-        };
+  upvoteIssue: async (id, userId) => {
+    const isOnline = useSyncStore.getState().isOnline;
+    if (isOnline) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/issues/${id}/upvote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+        if (res.ok) {
+          const data = await res.json(); // { upvotes: number, upvotedByUser: boolean }
+          set((state) => ({
+            issues: state.issues.map((issue) =>
+              issue.id === id
+                ? { ...issue, upvotes: data.upvotes, upvotedByUser: data.upvotedByUser }
+                : issue
+            ),
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to upvote issue on backend:', err);
       }
-      return issue;
-    })
-  })),
-  addComment: (issueId, content, userName, isAnonymous) => set((state) => ({
-    issues: state.issues.map((issue) => {
-      if (issue.id === issueId) {
-        const newComment: Comment = {
-          id: 'c-' + Math.random().toString(36).substr(2, 9),
-          userName: isAnonymous ? 'Anonymous' : userName,
-          content,
-          isAnonymous,
-          createdAt: new Date().toISOString(),
-        };
-        return {
-          ...issue,
-          comments: [...issue.comments, newComment],
-        };
+    }
+
+    // Offline / Fallback optimistic update
+    set((state) => ({
+      issues: state.issues.map((issue) => {
+        if (issue.id === id) {
+          const upvoted = !issue.upvotedByUser;
+          return {
+            ...issue,
+            upvotedByUser: upvoted,
+            upvotes: upvoted ? issue.upvotes + 1 : issue.upvotes - 1,
+          };
+        }
+        return issue;
+      })
+    }));
+  },
+  addComment: async (issueId, content, userName, isAnonymous) => {
+    const isOnline = useSyncStore.getState().isOnline;
+    if (isOnline) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/issues/${issueId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, userName, isAnonymous }),
+        });
+        if (res.ok) {
+          const newComment: Comment = await res.json();
+          set((state) => ({
+            issues: state.issues.map((issue) => {
+              if (issue.id !== issueId) return issue;
+              // Prevent duplicate comments if optimistically added
+              const tempIndex = issue.comments.findIndex(
+                (c) => c.id.startsWith('c-') && c.content === newComment.content && c.userName === newComment.userName
+              );
+              const updatedComments = [...issue.comments];
+              if (tempIndex !== -1) {
+                updatedComments[tempIndex] = newComment;
+              } else {
+                updatedComments.push(newComment);
+              }
+              return { ...issue, comments: updatedComments };
+            })
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to add comment on backend:', err);
       }
-      return issue;
-    })
-  })),
-  updateStatus: (issueId, newStatus, changedBy, comment) => set((state) => ({
-    issues: state.issues.map((issue) => {
-      if (issue.id === issueId) {
-        const newHistory: StatusHistory = {
-          id: 'sh-' + Math.random().toString(36).substr(2, 9),
-          statusFrom: issue.status,
-          statusTo: newStatus,
-          changedBy,
-          comment,
-          createdAt: new Date().toISOString(),
-        };
-        return {
-          ...issue,
-          status: newStatus,
-          statusHistory: [...issue.statusHistory, newHistory],
-        };
+    }
+
+    // Offline / Fallback local update (optimistic)
+    const newComment: Comment = {
+      id: 'c-' + Math.random().toString(36).substr(2, 9),
+      userName: isAnonymous ? 'Anonymous' : userName,
+      content,
+      isAnonymous,
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      issues: state.issues.map((issue) =>
+        issue.id === issueId
+          ? { ...issue, comments: [...issue.comments, newComment] }
+          : issue
+      )
+    }));
+  },
+  updateStatus: async (issueId, newStatus, changedBy, comment) => {
+    const isOnline = useSyncStore.getState().isOnline;
+    if (isOnline) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/issues/${issueId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, changedBy, comment }),
+        });
+        if (res.ok) {
+          set((state) => ({
+            issues: state.issues.map((issue) => {
+              if (issue.id === issueId) {
+                const newHistory: StatusHistory = {
+                  id: 'sh-' + Math.random().toString(36).substr(2, 9),
+                  statusFrom: issue.status,
+                  statusTo: newStatus,
+                  changedBy,
+                  comment,
+                  createdAt: new Date().toISOString(),
+                };
+                return {
+                  ...issue,
+                  status: newStatus,
+                  statusHistory: [...issue.statusHistory, newHistory],
+                };
+              }
+              return issue;
+            })
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to update status on backend:', err);
       }
-      return issue;
-    })
-  })),
+    }
+
+    // Offline / Fallback local update
+    set((state) => ({
+      issues: state.issues.map((issue) => {
+        if (issue.id === issueId) {
+          const newHistory: StatusHistory = {
+            id: 'sh-' + Math.random().toString(36).substr(2, 9),
+            statusFrom: issue.status,
+            statusTo: newStatus,
+            changedBy,
+            comment,
+            createdAt: new Date().toISOString(),
+          };
+          return {
+            ...issue,
+            status: newStatus,
+            statusHistory: [...issue.statusHistory, newHistory],
+          };
+        }
+        return issue;
+      })
+    }));
+  },
 }));
