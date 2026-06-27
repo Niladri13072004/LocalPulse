@@ -59,7 +59,7 @@ export default function CitizenEventsScreen() {
           setEvents(mockEvents);
         }
       } catch (err) {
-        console.error('Failed to fetch events from backend:', err);
+        console.warn('Backend not available, using mock events.');
         setEvents(mockEvents);
       }
     };

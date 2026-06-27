@@ -1,6 +1,0 @@
-@echo off
-echo Starting LocalPulse Backend Setup...
-python server\db.py
-echo Starting Server...
-python server\server.py
-pause
