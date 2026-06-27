@@ -18,7 +18,7 @@
 
 <br/>
 
-[📱 Download APK](https://expo.dev/accounts/niladri_singha_2004/projects/localpulse/builds) · [🌐 Try on Web](http://localhost:8081) · [📧 Contact](#-support)
+[📱 Download APK](https://drive.google.com/file/d/1kPmaw9PA_Leyvp7nnSw-YAzcfZGeedc6/view?usp=drivesdk) · [📧 Contact](#-support)
 
 </div>
 
